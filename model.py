@@ -27,7 +27,8 @@ class CombineGraph(Module):
         # !!! removed part
         # self.adj_all = None
         # self.num = None
-        if adj_all is not None:
+        self.use_global = adj_all is not None
+        if self.use_global:
             self.adj_all = trans_to_cuda(torch.Tensor(adj_all)).long()
             self.num = trans_to_cuda(torch.Tensor(num)).float()
         else:
@@ -37,15 +38,15 @@ class CombineGraph(Module):
         # Aggregator
         self.local_agg = LocalAggregator(self.dim, self.opt.alpha, dropout=0.0)
 
-        # !!! remove global graph modification
         self.global_agg = []
-        for i in range(self.hop):
-            if opt.activate == 'relu':
-                agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.relu)
-            else:
-                agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.tanh)
-            self.add_module('agg_gcn_{}'.format(i), agg)
-            self.global_agg.append(agg)
+        if self.use_global:
+            for i in range(self.hop):
+                if opt.activate == 'relu':
+                    agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.relu)
+                else:
+                    agg = GlobalAggregator(self.dim, opt.dropout_gcn, act=torch.tanh)
+                self.add_module('agg_gcn_{}'.format(i), agg)
+                self.global_agg.append(agg)
 
         # Item representation & Position representation
         self.embedding = nn.Embedding(num_node+1, self.dim)
@@ -71,6 +72,8 @@ class CombineGraph(Module):
             weight.data.uniform_(-stdv, stdv)
 
     def sample(self, target, n_sample):
+        if not self.use_global:
+            raise RuntimeError('Attempted to sample neighbors while global graph is disabled.')
         # neighbor = self.adj_all[target.view(-1)]
         # index = np.arange(neighbor.shape[1])
         # np.random.shuffle(index)
@@ -109,7 +112,7 @@ class CombineGraph(Module):
         h_local = F.dropout(h_local, self.dropout_local, training=self.training)
 
         # check if global graph is used
-        if self.adj_all is not None:
+        if self.use_global:
             # global aggregation
             item_neighbors = [inputs]
             weight_neighbors = []

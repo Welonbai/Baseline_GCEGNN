@@ -1,5 +1,6 @@
 import time
 import argparse
+import os
 import pickle
 from model import *
 from utils import *
@@ -30,6 +31,7 @@ parser.add_argument('--n_iter', type=int, default=1)                            
 parser.add_argument('--dropout_gcn', type=float, default=0, help='Dropout rate.')       # [0, 0.2, 0.4, 0.6, 0.8]
 parser.add_argument('--dropout_local', type=float, default=0, help='Dropout rate.')     # [0, 0.5]
 parser.add_argument('--dropout_global', type=float, default=0.5, help='Dropout rate.')
+parser.add_argument('--use_global_graph', action='store_true', help='Enable global graph aggregation.')
 parser.add_argument('--validation', action='store_true', help='validation')
 parser.add_argument('--valid_portion', type=float, default=0.1, help='split the portion')
 parser.add_argument('--alpha', type=float, default=0.2, help='Alpha for the leaky_relu.')
@@ -81,23 +83,31 @@ def main():
     else:
         test_data = pickle.load(open('datasets/' + opt.dataset + '/test.txt', 'rb'))
 
-    # !!!Remove global graph modification
-    # adj = pickle.load(open('datasets/' + opt.dataset + '/adj_' + str(opt.n_sample_all) + '.pkl', 'rb'))
-    # num = pickle.load(open('datasets/' + opt.dataset + '/num_' + str(opt.n_sample_all) + '.pkl', 'rb'))
-    # !!!Remove global graph modification
-
-    # Add this for remove global graph
     adj, num = None, None
+    if opt.use_global_graph:
+        adj_path = os.path.join('datasets', opt.dataset, f'adj_{opt.n_sample_all}.pkl')
+        num_path = os.path.join('datasets', opt.dataset, f'num_{opt.n_sample_all}.pkl')
+        if not (os.path.exists(adj_path) and os.path.exists(num_path)):
+            missing = []
+            if not os.path.exists(adj_path):
+                missing.append(os.path.basename(adj_path))
+            if not os.path.exists(num_path):
+                missing.append(os.path.basename(num_path))
+            missing_str = ', '.join(missing)
+            raise FileNotFoundError(
+                f"Missing global graph files for {opt.dataset}: {missing_str}. Expected files under datasets/{opt.dataset}."
+            )
+        print(f'Loading global graph from {adj_path} and {num_path}')
+        with open(adj_path, 'rb') as f_adj, open(num_path, 'rb') as f_num:
+            adj = pickle.load(f_adj)
+            num = pickle.load(f_num)
+        num_node = max(num_node, len(adj))
 
     train_data = Data(train_data)
     test_data = Data(test_data)
 
-    # !!!Remove global graph modification
-    # adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
-    # !!!Remove global graph modification
     if adj is not None and num is not None:
         adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
-
 
     model = trans_to_cuda(CombineGraph(opt, num_node, adj, num))
 
