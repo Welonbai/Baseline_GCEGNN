@@ -56,6 +56,21 @@ def main():
         opt.n_iter = 1
         opt.dropout_gcn = 0.6
         opt.dropout_local = 0.5
+    elif opt.dataset == 'Amazon':
+        num_node = 14354
+        opt.n_iter = 1
+        opt.dropout_gcn = 0.0  # No global graph, just set 0
+        opt.dropout_local = 0.0
+    elif opt.dataset == 'Amazon_clothing':
+        num_node = 81440   # from your preprocessing log
+        opt.n_iter = 1
+        opt.dropout_gcn = 0.0
+        opt.dropout_local = 0.0
+    elif opt.dataset == 'Amazon_cellPhone':
+        num_node = 22870
+        opt.n_iter = 1
+        opt.dropout_gcn = 0.2
+        opt.dropout_local = 0.0
     else:
         num_node = 310
 
@@ -66,12 +81,24 @@ def main():
     else:
         test_data = pickle.load(open('datasets/' + opt.dataset + '/test.txt', 'rb'))
 
-    adj = pickle.load(open('datasets/' + opt.dataset + '/adj_' + str(opt.n_sample_all) + '.pkl', 'rb'))
-    num = pickle.load(open('datasets/' + opt.dataset + '/num_' + str(opt.n_sample_all) + '.pkl', 'rb'))
+    # !!!Remove global graph modification
+    # adj = pickle.load(open('datasets/' + opt.dataset + '/adj_' + str(opt.n_sample_all) + '.pkl', 'rb'))
+    # num = pickle.load(open('datasets/' + opt.dataset + '/num_' + str(opt.n_sample_all) + '.pkl', 'rb'))
+    # !!!Remove global graph modification
+
+    # Add this for remove global graph
+    adj, num = None, None
+
     train_data = Data(train_data)
     test_data = Data(test_data)
 
-    adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
+    # !!!Remove global graph modification
+    # adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
+    # !!!Remove global graph modification
+    if adj is not None and num is not None:
+        adj, num = handle_adj(adj, num_node, opt.n_sample_all, num)
+
+
     model = trans_to_cuda(CombineGraph(opt, num_node, adj, num))
 
     print(opt)
