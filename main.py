@@ -101,7 +101,16 @@ def main():
         with open(adj_path, 'rb') as f_adj, open(num_path, 'rb') as f_num:
             adj = pickle.load(f_adj)
             num = pickle.load(f_num)
-        num_node = max(num_node, len(adj))
+        if len(adj) != len(num):
+            raise ValueError(f"Mismatched global graph shapes: adj len {len(adj)} vs num len {len(num)}")
+        if len(adj) <= 1:
+            raise ValueError(f"Global graph appears empty (len={len(adj)}). Check {adj_path}.")
+        if len(adj) < num_node:
+            pad = num_node - len(adj)
+            adj.extend([[] for _ in range(pad)])
+            num.extend([[] for _ in range(pad)])
+        else:
+            num_node = len(adj)
 
     train_data = Data(train_data)
     test_data = Data(test_data)
